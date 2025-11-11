@@ -1,0 +1,55 @@
+name: Auto Unzip Archives
+
+on:
+  push:
+    paths:
+      - '**/*.zip'       # 监听所有 .zip 文件
+      - '**/*.tar.gz'    # 可选：监听 tar.gz
+      - '**/*.tgz'       # 可选：监听 .tgz
+      - '**/*.tar.bz2'   # 可选：监听 .tar.bz2
+  workflow_dispatch:     # 也允许手动触发
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 允许 Actions 提交更改
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and unzip archives
+        run: |
+          find . -type f \( -name "*.zip" -o -name "*.tar.gz" -o -name "*.tgz" -o -name "*.tar.bz2" \) | while read f; do
+            echo "Processing $f"
+            dir=$(dirname "$f")
+            base=$(basename "$f")
+            ext="${base##*.}"
+            case "$ext" in
+              zip)
+                unzip -o "$f" -d "$dir"
+                ;;
+              gz)
+                tar -xzf "$f" -C "$dir"
+                ;;
+              tgz)
+                tar -xzf "$f" -C "$dir"
+                ;;
+              bz2)
+                tar -xjf "$f" -C "$dir"
+                ;;
+              *)
+                echo "Unknown extension: $f"
+                ;;
+            esac
+            # 可选：删除压缩包
+            # rm "$f"
+          done
+
+      - name: Commit and push unzipped contents
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Auto-unzip archives" || echo "No changes to commit"
+          git push
